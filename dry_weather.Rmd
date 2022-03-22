@@ -1,0 +1,1061 @@
+---
+output: 
+  html_document:
+      css: styles.css
+runtime: shiny
+---
+  
+```{r setup, message = F, warning = F, results = 'hide', echo = F}
+knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, echo = F, fig.path = 'figs/', dev.args = list(family = 'serif'))
+
+
+
+library(tidyverse)
+library(ggpubr)
+library(sf)
+library(mapview)
+library(leaflet)
+library(lubridate)
+library(leafsync)
+library(viridisLite)
+library(lubridate)
+library(gridExtra)
+library(stargazer)
+library(EnvStats)
+library(shiny)
+library(kableExtra)
+library(mgcv)
+library(metR)
+library(shinyWidgets)
+library(plotly)
+library(english)
+library(vegan)
+library(patchwork)
+library(plotly)
+library(yaml)
+library(pracma)
+library(shinythemes)
+library(shinycssloaders)
+library(pwr)
+library(purrr)
+library(DT)
+library(writexl)
+library(plotly)
+library(shinydashboard)
+library(dashboardthemes)
+library(shinyjs)
+library(readxl)
+#library(xlsx)
+
+mptyps <- c("CartoDB.Positron", "CartoDB.DarkMatter", "OpenStreetMap", "Esri.WorldImagery", "OpenTopoMap")
+# nutrients, top Analytes (top ten plus those with thresholds)
+nutrs <- c('Ammonia', 'Nitrate, Nitrite', 'Total Kjeldahl Nitrogen', 'Total Nitrogen', 'Orthophosphate', 'Total Phosphorus')
+
+mapviewOptions(leafletHeight = 300)
+
+prj <- 4326 # wgs84
+
+
+
+options(shiny.maxRequestSize=30*1024^2) #Making data upload size bigger 
+##
+
+
+
+#static dataframes
+data(thrsdat)
+data(tmdldat)
+data(dwdat)
+
+#View(dwdat)
+
+# upload<-dwdat%>%
+#   filter(Analyte %in% c("Cu","Cd","Ammonia"))
+# 
+# write.csv(upload, "More_stations.csv")
+  
+# test<-dwdat%>%
+#   slice(1:3000)
+# 
+# write.csv(test, "upload.csv")
+
+
+
+
+# xy locs
+# locs <- dwdat %>%
+#   select(StationCode, TargetLongitude, TargetLatitude) %>%
+#   unique
+# 
+
+# date ranges
+# dts <- dwdat %>%
+#   pull(Date) %>%
+#   range
+
+# # obs ranges per station
+# obsrng <- dwdat %>%
+#   group_by(StationCode, Analyte) %>%
+#   summarise(n = n()) %>%
+#   pull(n) %>%
+#   range
+# 
+# # obs ranges per station, averages across Analytes
+# obsave <- dwdat %>%
+#   group_by(StationCode, Analyte) %>%
+#   summarise(n = n()) %>%
+#   group_by(StationCode) %>%
+#   summarise(n = mean(n, na.rm = T)) %>%
+#   mutate(n = round(n, 1))
+# obsaverng <- obsave %>%
+#   pull(n) %>%
+#   range
+# 
+# 
+
+# color palette for hotspot exceedances, as prop
+hotcol <- colorNumeric(
+  palette = rev(RColorBrewer::brewer.pal(11, 'RdYlBu')),
+  na.color = 'yellow',
+    domain = c(0, 100)
+  )
+
+
+
+# tops <- table(dwdat$Analyte) %>% sort %>% rev %>% .[1:10] %>% names %>% sort
+# 
+# 
+# tops <- thrsdat %>%
+#   pull(Analyte) %>%
+#   c(., tops) %>%
+#   unique
+# tops <- tops[!tops %in% nutrs]
+
+# lookup list for Analytes with thresholds and TMDL waterbodies
+tmdl <- list(
+  EC = 'EC', 
+  Metals = c('Ag', 'As', 'Cd', 'Cr', 'Cu', 'Hg', 'Ni', 'Pb', 'Se', 'Zn'), 
+  Nutrients = c('Ammonia', 'Nitrate, Nitrite'), 
+  Pathogens = c('ENT', 'FC', 'TC'),
+  Pesticides = c('Chlorpyrifos', 'Diazinon', 'Dimethoate', 'Fensulfothion', 'Malathion'), 
+  TSS = 'TSS'
+  ) %>% 
+  enframe('grp', 'Analyte') %>% 
+  unnest(Analyte)
+```
+
+```{r reactives}
+
+
+#Template 
+
+StationCode <- c("ANAB0151@WES")
+county <- c("Santa Ana River")
+Date<-c("2016-05-23")
+Analyte<-c("Cu")
+Result<-c("23")
+Unit<-c("ug/L")
+TargetLongitude<-c("xxx.xxxx")
+TargetLatitude<-c("yyy.yyyy")
+
+
+
+
+
+df <- data.frame(StationCode,county,Date,Analyte,Result,Unit,TargetLongitude,TargetLatitude)
+
+
+
+output$dl <- downloadHandler(
+    filename = function() { "Template.xlsx"},
+    content = function(file) {write_xlsx(df, path = file)}
+  )
+
+
+
+  data <- reactive({
+    req(input$file_upload)
+
+  data<-read_excel(input$file_upload$datapath,
+
+                  skip = 2
+    )
+  
+
+  
+#  data2<- st_as_sf(data1, coords = c("TargetLongitude", "TargetLatitude"), crs = 4326)
+#  
+#  
+# 
+# ca <- st_read("wbdhu10_a_ca/wbdhu10_a_ca.shp")
+# ca_wgs <- st_transform(ca, crs = 4326)
+# 
+# data <- st_join(data2, ca_wgs)
+# 
+
+
+  data%>%
+     drop_na(Result)%>%
+    rename(Watershed = county)%>%
+     #select(StationCode,SampleDate,TargetLongitude,TargetLatitude,NAME,Result,Unit)%>%
+    #rename(Watershed = NAME)
+
+
+    return(data)
+
+  })
+
+filtered_dataframe<-reactive({
+  
+      #req(input$file_upload)
+
+  data<-data()
+
+  
+   
+   #%>%
+     #select(Analyte,Watershed,StationCode,TargetLatitude,TargetLongitude,Units)
+     #select(Analyte,Watershed,StationCode,TargetLatitude,TargetLongitude,Units)
+  
+    #quantile_c<-input$quantile_check
+    Analyte_c<-input$varsel3
+    Watershed_c<-input$Watershed_check
+    #Unit_c<-input$Unitel
+    #Watershed_c<-input$Watershed_check
+    
+ 
+    
+    
+  data%>%
+    #filter(StationCode %in% quantile_c)%>%
+    filter(Analyte %in% Analyte_c)%>%
+    filter(Watershed %in% Watershed_c)
+    #filter(Unit %in% Unit_c)
+    #filter(Watershed %in% Watershed_c)
+  
+     return(data)
+  
+})
+
+
+# tops <- reactive({
+#   
+#   req(input$file_upload)
+#    data<-read_excel(input$file_upload$datapath)
+#   
+#   tops<-table(data$Analyte) %>% sort %>% rev %>% .[1:10] %>% names %>% sort
+#   
+#   tops <- thrsdat %>% 
+#   pull(Analyte) %>% 
+#   c(., tops) %>% 
+#   unique
+# tops <- tops[!tops %in% nutrs]
+# 
+# return(tops)
+#   
+# })
+
+
+  
+  
+
+locs<-reactive({
+  req(input$file_upload)
+  
+  
+  locs <- filtered_dataframe()
+  
+  
+  locs%>%
+  select(StationCode, TargetLongitude, TargetLatitude) %>%
+  unique
+  
+  #print(locs)
+  
+return(locs)
+  
+
+
+  
+})
+
+
+
+  
+  
+  
+  
+
+output$my_table<-renderDT({
+  
+  data()
+ 
+  
+})
+
+# dts<-reactive({
+#   req(input$file_upload)
+# 
+# 
+#   dts <- data()
+# 
+# 
+#  dts %>%
+#   pull(Date) %>%
+#   range
+# 
+#   print(dts)
+# 
+# return(dts)
+# 
+# 
+# })
+
+
+# get threshold variable
+varthr <- reactive({
+  
+  # input
+  varsel3 <- input$varsel3
+  filtered_dataframe<-filtered_dataframe()
+  
+  out <- filtered_dataframe %>% 
+    filter(Analyte %in% varsel3) %>% 
+    dplyr::mutate(Threshold = median(Result))%>%
+    pull(Threshold)
+  
+  return(out)
+  
+})
+
+# hotspot input ranges
+hotrng <- reactive({
+  
+  req(input$file_upload)
+  
+  data<-data()
+  
+  # inputs
+  varsel3 <- input$varsel3
+  varthr <- varthr()
+  
+  # values for slider
+  qnts <- c(0, 0.5, 1)
+  out <- data %>% 
+    filter(Analyte %in% varsel3) %>%
+    pull(Result) %>% 
+    quantile(probs = qnts, na.rm = T) %>%
+    round(2)
+
+  # make the default selection the threshold if applicable
+  if(length(varthr) != 0)
+    out[2] <- varthr
+    
+  return(out)
+  
+})
+
+
+
+# hotspot data
+hotdat <- reactive({
+  
+  
+  data<-data()
+  
+  # inputs
+  #cntsel <- input$cntsel
+  varsel3 <- input$varsel3
+  #dtssel <- input$dtssel
+  thrsel2 <- input$thrsel2
+  #tmdsel <- as.logical(input$tmdsel)
+  locsel <- input$locsel
+  req(thrsel2)
+
+  # filter by tmdl waterbodies
+  # if( length(locsel)
+  # 
+  #    > 0)
+  #   
+  #   {
+  #   
+  #   # grp <- tmdl %>% 
+  #   #   filter(Analyte %in% varsel3) %>% 
+  #   #   pull(grp) 
+  #   # 
+  #   # stas <- tmdldat %>% 
+  #   #   filter(Analyte %in% !!grp) %>% 
+  #   #   filter(Receiving %in% locsel) %>% 
+  #   #   select(StationCode, Receiving)
+  # 
+  #   out <- data %>% 
+  #     inner_join(stas, by = 'StationCode') %>% 
+  #     select(-Watershed) %>% 
+  #     rename(Watershed = Receiving)
+  
+  #}
+  
+  #if(!tmdsel)
+    out <- data 
+  
+  req(exists('out'))
+  
+  # summary for all dates, stations by selected constituent
+  out <- out %>% 
+    filter(Analyte %in% varsel3) %>%
+    group_by(Watershed, StationCode) %>% 
+    mutate(n = n()) %>% 
+    #filter(Date >= dtssel[1] & Date <= dtssel[2]) %>%
+    mutate(
+      abv = case_when(
+        Result > thrsel2 ~ 1, 
+        T ~ 0
+      )
+    ) %>% 
+    summarise(
+      exceeds = sum(abv),
+      n = unique(n)
+      ) %>% 
+    ungroup() %>% 
+    mutate(
+      exceeds = round((exceeds / n) * 100, 0),
+      unexceeds = (100- exceeds),
+      cols2 = hotcol(unexceeds),
+      cols = hotcol(exceeds), 
+      cexs = scales::rescale(exceeds, to = c(4, 17), from = c(0, 100))
+    ) %>% 
+    select(Watershed, StationCode, exceeds, n, cols,cols2, cexs, unexceeds) %>% 
+    #filter(n >= cntsel[1] & n <= cntsel[2]) %>% 
+    unique
+  
+  return(out)
+  
+  print(out)
+})
+
+# map of exceedances
+hotmap <- eventReactive(list(input$go_quality),{
+  
+
+  
+ #locs<-locs()
+  
+  # input
+  hotdat <- hotdat()
+  locs<-locs()
+  
+  req(nrow(hotdat) > 0)
+  
+  tomap <- hotdat %>%
+    inner_join(locs, by = 'StationCode', copy=TRUE )
+  # print("tomap")
+  # print(tomap)
+  tomap <- tomap %>%
+    st_as_sf(coords = c("TargetLongitude", "TargetLatitude"), crs = prj)
+  
+
+
+  # hover pt labels
+  labs <- paste(tomap$StationCode, ':', tomap$exceeds, ' freq exceeding, ', tomap$n, ' total obs.')
+  #leglab <- "% Exceeding"
+  
+  mapviewOptions(leafletHeight = 600,leafletWidth = 800)
+
+  m <- mapview(tomap, cex = tomap$cexs, label = labs, legend = F, layer.name = F, col.regions = tomap$cols, homebutton = F, map.types = mptyps)
+  
+  # add legend
+  out <- m@map %>% 
+    addLegend("bottomright", pal = hotcol, title = "% Exceeding", opacity = 1, values = tomap$exceeds) 
+  
+  return(out)
+  
+})
+
+
+hotplo2 <- eventReactive(list(input$go_quality),{
+
+
+
+  # input
+  hotdat <- hotdat()
+  #dtssel <- input$dtssel
+
+  req(nrow(hotdat) > 0)
+
+  toplo <- hotdat %>%
+    arrange(Watershed, exceeds, unexceeds) #%>%
+    #mutate(StationCode = factor(StationCode, levels = .$StationCode))
+  #ylab <- paste0("Number of exceedances above the median\nfrom ", as.character(dtssel[1]), ' to ', as.character(dtssel[2]))
+
+
+  
+  
+  
+ 
+  toplo_exceeds<-toplo%>%
+    select(Watershed, StationCode, exceeds, n, cols)%>%
+    rename(exceedences = exceeds)%>%
+    mutate( Name = "exceeds")
+  
+  toplo_unexceeds<-toplo%>%
+    select(Watershed, StationCode, unexceeds, n, cols2)%>%
+    rename(exceedences = unexceeds)%>%
+    rename(cols = cols2)%>%
+    mutate( Name = "unexceeds")
+  
+  toplo<-full_join(toplo_exceeds, toplo_unexceeds)
+  
+  print(toplo)
+    
+  Exceedences<-paste0(toplo$exceedences,"%")
+#Barplot
+  p <- ggplot(toplo, aes(x = StationCode, y = n,label= Exceedences, fill=toplo$cols)) +
+     geom_bar(stat = 'identity', fill=toplo$cols) +
+    facet_wrap(~Watershed, scales = 'free_x',ncol=1) +
+     #scale_fill_manual(values = hotcol)+
+    theme_pubr()+
+    xlab("Station ID")+
+    ylab("Number of Observations")+
+    labs(fill="Freq of Exceedences")+
+    #geom_text(label=toplo$exceeds)+
+    #guides(fill="none")+
+    #thm1 +
+    theme(
+      axis.text.x = element_text(size = 9, angle = 45, hjust = 1),
+      axis.title.x = element_blank(),
+      plot.margin = margin(0, 0, 2, 0, "cm"),
+      legend.position="top",
+      #legend.position = c(.2,.85),
+      #legend.position="top",
+    ) +
+    # Hi Emily! The reason why you were getting the error was because of this
+    # There are values of n which exceed the specified limit here, which is zero to 100
+    # I am going to increase the limit and it should work
+    #scale_y_continuous(limits = c(0, 100))
+    scale_y_continuous(limits = c(0, 1000))
+  
+  #label= Exceedences
+
+  # if(input$logarithmicY)
+  #        p <- p + scale_y_log10()
+  #  #
+    #return(p)
+
+  p2<-ggplotly(p)
+
+  return(p2)
+
+
+})
+
+hotplo<- eventReactive(list(input$go_quality),{
+
+
+  
+  # input
+  data <- filtered_dataframe()
+  #dtssel <- input$dtssel
+  
+  
+
+
+  p <- ggplot(data, aes(x = StationCode, y = Result)) +
+     geom_boxplot() +
+   facet_wrap(~Watershed, scales = 'free_x',ncol=1) +
+       xlab("Station ID")+
+    ylab(Unit)+
+    stat_summary(fun = "mean", geom = "point", color="black",size=1)+
+    #scale_y_log10()+
+    #thm1 +
+    theme_pubr()+
+    theme(
+      axis.text.x = element_text(size = 9, angle = 45, hjust = 1),
+      axis.title.x = element_blank(),
+      plot.margin = margin(0, 0, 2, 0, "cm"),
+    ) #+
+    #scale_y_continuous(limits = c(0, 100))
+
+  #return(p)
+
+   if(input$logarithmicY)
+         p <- p + scale_y_log10()
+   #
+   #return(p)
+   #
+  p2 <-ggplotly(p, tooltip = "x" )
+
+print(p2)
+  
+})
+
+
+
+
+
+
+
+
+
+
+
+
+output$myplot<-renderPlotly({hotplo()})
+
+output$myplot2<-renderPlotly({hotplo2()})
+
+output$test<-renderPlot({test()})
+
+output$test2<-renderPlot({test2()})
+
+
+```
+
+
+```{r}
+
+
+dashboardPage(
+  dashboardHeader(title = "Hotspots"),
+    dashboardSidebar(
+    sidebarMenu(
+      menuItem("Welcome", tabName = "Welcome", icon = icon("home")),
+      menuItem("Hotspot", tabName = "Hotspot", icon = icon("check-circle"))
+      #menuItem("Stats", tabName = "Stats", icon = icon("chart-bar"))
+    )
+  ),
+  
+    dashboardBody(
+      
+       tags$head(tags$style(HTML('
+        /* logo */
+        .skin-blue .main-header .logo {
+                              background-color: #f4b943;
+                              }
+
+        /* logo when hovered */
+        .skin-blue .main-header .logo:hover {
+                              background-color: #f4b943;
+                              }
+
+        /* navbar (rest of the header) */
+        .skin-blue .main-header .navbar {
+                              background-color: #f4b943;
+                              }        
+
+        /* main sidebar */
+        .skin-blue .main-sidebar {
+                              background-color: #f4b943;
+                              }
+
+        /* active selected tab in the sidebarmenu */
+        .skin-blue .main-sidebar .sidebar .sidebar-menu .active a{
+                              background-color: #ff0000;
+                              }
+
+        /* other links in the sidebarmenu */
+        .skin-blue .main-sidebar .sidebar .sidebar-menu a{
+                              background-color: #00ff00;
+                              color: #000000;
+                              }
+
+        /* other links in the sidebarmenu when hovered */
+         .skin-blue .main-sidebar .sidebar .sidebar-menu a:hover{
+                              background-color: #ff69b4;
+                              }
+        /* toggle button when hovered  */                    
+         .skin-blue .main-header .navbar .sidebar-toggle:hover{
+                              background-color: #ff69b4;
+                              }
+                              '))),
+      
+   tabItems(
+     tabItem(tabName = "Welcome",
+              
+              #Header     
+              h1("Welcome to App 4,",br(),"Chemical Hotspot Detection ", align = 'center'),
+              br(),
+              
+              
+              box(status = "primary", width = 12,
+                  fluidRow(
+                    #top right box
+                    column(width = 12, 
+                           
+                           
+                           
+                           h3("Adaptive Management App for Storm Water Managers", align = "center"), 
+                           
+                           strong(p("This application allows storm water managers to identify hotspots within thier regions")), 
+                           
+                           p("This application allows managers to detect hot spots of chemical contamination within their region based on frequency of exceeding water quality thresholds or magnitude of concentration.  The goal of the app is to identify locations where additional adaptive management actions can be prioritized, including additional monitoring or source tracking.",br(),
+                             "This web application was created to assist regulated and regulatory managers when analyzing their hot spot monitoring program for supporting adaptive management decisions.  This hot spot app supports monitoring designs for any indicator (chemical, bacteria, trash, biology, volume) and can accommodate either continuous or discontinuous data.",br(),  
+"This web app has three elements: 1) upload your data and water quality thresholds, 2) map of threshold exceedances, 3) box plots of threshold exceedances, and 4) bar plot of sample sizes.",br(),  
+"The data upload can be accomplished using the downloadable data template or uploading directly from CEDEN.  This allows users to input as many sites and as many sampling events per site as they wish. The data upload tab is also the location where the water quality threshold input is required.",br(), 
+"The map of threshold exceedances is a thematic map.  The larger and warmer the colors are in the map symbol, the greater the frequency of threshold exceedances occurring at this site.  In contrast, the smaller and cooler the colors are in the map symbols, the lesser the frequency of threshold exceedances occurring at this site."
+),
+                           
+                       p("Use the side panel on the left of the page to navigate to each section, with more specific options being found within each section.")))
+                    
+                  ), #End Box
+                  
+                  
+                  
+                  
+             
+                  
+                  
+                  #bottom right box  
+                  box(status = "primary", width = 12, 
+                      h3("Contributors", align = "center"), 
+                      
+                      p(align = "center", a(href = "https://www.sccwrp.org/about/staff/ken-schiff/", 'Ken Schiff'),", Southern California Coastal Water Research Project"),
+                      
+                      p(align = "center", a(href = "https://www.sccwrp.org/about/staff/elizabeth-fassman-beck/", 'Dr. Elizabeth Fassman-Beck'),", Southern California Coastal Water Research Project"),
+                      
+                      p(align = "center", a(href = "https://www.sccwrp.org/about/staff/emily-darin/", 'Emily Darin'),", Southern California Coastal Water Research Project"),
+                      
+                      p(align = "center", a(href = "https://www.sfei.org/users/lorenzo-flores", 'Lorenzo Flores'),", San Francisco Estuary Institute"),
+                      
+                      p(align = "center", a(href = "https://www.sfei.org/users/gemma-shusterman", 'Gemma Shusterman'),", San Francisco Estuary Institute"),
+                      
+                      #tags$img(src="sccwrp.png", width = "20%", height = "20%", style = 'display: block; margin-left: auto; margin-right: auto;'),
+                      
+                      #tags$img(src="sfei.png", width = "20%", height = "20%", style = 'display: block; margin-left: auto; margin-right: auto;')
+                      
+                      ),
+                  
+                  
+           
+              
+      ),#End of Welcome Tab
+     
+  tabItem(tabName = "Hotspot",
+     
+          
+     
+          
+    box(status = "primary", width = 12,title="Hotspot Detection",
+        fluidRow(
+          column(12,
+          p("This tab shows hot spots for each constituent in a given station and Watershed.",br(),"This happens in four steps: 1) Upload your data, 2) select constituent and threshold, 3) show map of exceedance frequency by station, 4) show concentrations by station, and 5) evaluate sample size.",br(),"Hotspots are defined by the number of instances when the observed data were above the threshold for the constituent, divided by the total number of observations at a site. Thresholds are user defined – pick your local water quality objective or TMDL target, or use the default value of the median concentration of the data set")),
+          ),
+
+),
+
+      
+fluidRow(
+column(12, 
+       
+       column(6, 
+              box(title="Instructions for Data Upload",
+                status="success",width=12,
+                fluidRow(
+                  column(12,
+                p("1. Download the Excel File Template from this tab",br(),
+"2. Enter your data in the exact same format as the examples in Excel Template OR upload dowloaded
+data from CEDEN. Data maximum is 35,000 rows.",br(),
+"3. Make sure your excel file ends in *.xlsx* and not *.xls*, if it does end in *.xls* re-save it as an excel workbook.",br(),
+"4. Click 'Data Upload' Button from this tab and select your saved excel file from your computer",br(),
+ 
+"5. Input your threshold (default is median of your dataset)",br(),
+"6. Once Selections are made, click the 'Plot Current Selections' button",br(), 
+"7. Click the '+' sign on each colored box below to view results")
+                
+                
+                
+              ))),
+              
+              
+              
+              ),
+       
+       
+       column(6, 
+              sidebarPanel(width=6,
+        downloadButton("dl", "Download Template Here"),
+        textOutput("Data control elements"),
+       
+        # mod_data_ui("data_selection"),
+ fileInput("file_upload", "Choose File",
+                        multiple = FALSE,
+                        accept = c(
+                          "text/csv",
+                          "text/comma-separated-values,text/plain",
+                          ".csv",
+                          ".xls"
+                        )
+                      ),
+ #upload_format_choice_ui("upload_format","Choose upload format:"),
+        
+    renderUI({
+
+           filtered_dataframe<-filtered_dataframe()
+
+           filtered_dataframe<-filtered_dataframe%>%
+             #mutate(StationCode = factor(StationCode))%>%
+             mutate(Analyte = factor(Analyte))%>%
+             mutate(Unit = factor(Unit))%>%
+             mutate(Watershed = factor(Watershed))
+             #print(data)
+
+
+           pickerInput(inputId = "Watershed_check",
+                       label = "County:",
+                       choices = levels(filtered_dataframe$Watershed),
+                       selected = levels(filtered_dataframe$Watershed),
+                       options = list(`actions-box` = TRUE),
+                       multiple = TRUE)
+
+
+
+         }),
+ 
+ 
+ 
+        renderUI({  
+           
+           filtered_dataframe<-filtered_dataframe()
+           
+          filtered_dataframe<-filtered_dataframe%>%
+             #mutate(StationCode = factor(StationCode))%>%
+             mutate(Analyte = factor(Analyte))%>%
+             mutate(Unit = factor(Unit))
+             #print(data)
+           
+
+           # pickerInput(inputId = "quantile_check",
+           #             label = "Watershed (Select up to 3):",
+           #             choices = levels(data$Watershed),
+           #             selected = levels(data$Watershed),
+           #             options = list(`actions-box` = TRUE),
+           #             multiple = TRUE)
+           
+         req(input$Watershed_check)
+           
+            pickerInput(inputId = "varsel3", 
+                       label = "Constituent:",
+                       choices = levels(filtered_dataframe$Analyte[input$Watershed_check]),
+                       selected = levels(filtered_dataframe$Analyte[input$Watershed_check]),
+                       options = list(`actions-box` = TRUE), 
+                       multiple = FALSE)
+            
+               # pickerInput(inputId = "Unitel",
+               #         label = "Unit:",
+               #         choices = levels(data$Unit),
+               #         selected = levels(data$Unit),
+               #         options = list(`actions-box` = TRUE),
+               #         multiple = FALSE)
+         
+           
+         }),
+        
+         
+        #selectInput('varsel3', 'Select constituent:', choices = sort(c(tops, nutrs)), selected = 'ENT'),
+        #selectInput('tmdsel', 'Filter by TMDL receiving waterbodies?', choices = c(F, T)),
+        #renderUI({
+
+
+            #locs<-locs()
+                # input
+                #varsel3 <- input$varsel3
+                #tmdsel <- as.logical(input$tmdsel)
+
+                #req(tmdsel)
+
+                # get receiving tmdl waterbodies
+               # grp <- tmdl %>%
+                  #filter(Analyte %in% varsel3) %>%
+                  #pull(grp)
+               # locs <- tmdldat %>%
+                  #filter(Analyte %in% !!grp) %>%
+                  #pull(Receiving) %>%
+                  #unique
+
+                #if(length(locs) == 0)
+                  #out <- 'No TMDLs for selection'
+
+                #if(length(locs) > 0)
+                  #out <- pickerInput(inputId = "locsel", label = 'Select TMDL receiving waterbodies:', choices = locs,
+                    #options = list(`actions-box` = TRUE, size = 20), selected = locs, multiple = TRUE)
+
+                #return(out)
+
+              #}),
+        
+        
+        renderUI({
+                
+                # input
+                hotrng <- hotrng()
+                
+                numericInput('thrsel2', paste0('Threshold: ', Unit), min = hotrng[1], max = hotrng[3], value = hotrng[2])
+                
+              }),
+        
+        #checkboxInput("logarithmicY", "Log Scale?", FALSE),
+        
+        actionButton("go_quality", "Plot Current Selection"),
+         # Dataset filters
+        # choice_ui("choice_ui_Watershed", "Watershed"),
+        # choice_ui("choice_ui_station", "Station"),
+        # choice_ui("choice_ui_Analyte", "Analyte"),
+        # choice_ui("choice_ui_unit", "Unit"),
+        # choice_ui("choice_ui_fraction", "Fraction")
+        )),
+ 
+       ),
+
+
+       
+),
+
+box(title= "Map of Exceedences by Station", status = "primary", collapsed = TRUE,collapsible = TRUE, width = 12, solidHeader = TRUE,
+
+fluidRow(
+column(12,
+       p("Sites with larger points colored in red have many exceedances, as compared to sites with small points in blue that have few excedances"),
+       leafletOutput('mymap', width=1500,height=800)),
+)),
+
+# ), #End Hotspots Tab
+# 
+#   tabItem(tabName = "Stats",
+
+
+box(title= "Box Plots of Constituent Results by Watershed and Station", status = "warning", collapsed = TRUE,collapsible = TRUE, width = 12, solidHeader = TRUE,
+fluidRow(
+  p(
+       "Hover over for more information about a station and mouse drag
+          selected boxplots from graphs to ZOOM in on a particular station"),
+column(12,
+       checkboxInput("logarithmicY", "Log Scale?", FALSE),
+       #actionButton("go2_quality", "Re-Plot"),
+       #checkboxInput("logarithmicY", "Log Scale?", FALSE),
+       plotlyOutput('myplot',width = 1200, height=1200)),
+
+# column(6,
+#        plotlyOutput('myplot2', width = 550, height= 1200)),
+),
+
+),
+
+
+box(title= " Bar Plots of Constituent Results by Watershed and Station", status = "warning", collapsed = TRUE,collapsible = TRUE, width = 12, solidHeader = TRUE,
+fluidRow(
+  p(
+       "Hover over for more information about a station and mouse drag
+          selected bar plots from graphs to ZOOM in on a particular station"),
+# column(6,
+#        #checkboxInput("logarithmicY", "Log Scale?", FALSE),
+#        plotlyOutput('myplot',width = 550, height=1200)),
+
+column(12,
+       plotlyOutput('myplot2', width = 1200, height= 1200)),
+),
+
+),
+# box(title= "Bar Plot of Number of Observations by TMDL Watershed and Station", status = "info", collapsed = TRUE,collapsible = TRUE, width = 12, solidHeader = TRUE,
+# fluidRow(
+# column(12,
+#         p(
+#        "Hover over for more information about a station and mouse drag
+#           selected bars from graphs to ZOOM in on a particular station"),
+#        plotlyOutput('myplot2', width = 400, height= 1200)),
+# ),
+# 
+# ),
+
+ # column(12, 
+ #        column(6, 
+ #                renderLeaflet(hotmap()),
+ #        ),
+        #column(6,
+               #dataTableOutput("my_table")
+#        # sliderInput('dtssel', 'Select date range:', min = dts[1], max = dts[2], value = dts, timeFormat="%Y-%m", width = '600px')
+        #)
+ #)
+# column(12,
+#        column(4,
+#               selectInput('tmdsel', 'Filter by TMDL receiving waterbodies?', choices = c(F, T))
+#        ),
+       #column(8,
+              #sliderInput('cntsel', 'Filter stations by total n:', min = 0, max = obsrng[2], value = c(0, obsrng[2]), width = '600px')
+       #)
+#)
+fluidRow(
+column(12,
+       # column(4,
+       #        renderUI({
+       # 
+       # 
+       #      #locs<-locs()
+       #          # input
+       #          varsel3 <- input$varsel3
+       #          tmdsel <- as.logical(input$tmdsel)
+       # 
+       #          req(tmdsel)
+       # 
+       #          # get receiving tmdl waterbodies
+       #          grp <- tmdl %>%
+       #            filter(Analyte %in% varsel3) %>%
+       #            pull(grp)
+       #          locs <- tmdldat %>%
+       #            filter(Analyte %in% !!grp) %>%
+       #            pull(Receiving) %>%
+       #            unique
+       # 
+       #          if(length(locs) == 0)
+       #            out <- 'No TMDLs for selection'
+       # 
+       #          if(length(locs) > 0)
+       #            out <- pickerInput(inputId = "locsel", label = 'Select TMDL receiving waterbodies:', choices = locs,
+       #              options = list(`actions-box` = TRUE, size = 20), selected = locs, multiple = TRUE)
+       # 
+       #          return(out)
+       # 
+       #        })
+       # ),
+       # column(4,
+       #        renderUI({
+       #          
+       #          # input
+       #          hotrng <- hotrng()
+       #          
+       #          numericInput('thrsel2', 'Input threshold:', min = hotrng[1], max = hotrng[3], value = hotrng[2])
+       #          
+       #        })
+       # ), 
+              # renderText({
+              # 
+              #   # input
+              #   hotrng <- hotrng()
+              #   varthr <- varthr()
+              #   
+              #   txt <- paste0("min ", hotrng[1], ', max ', hotrng[3])
+              # 
+              #   if(length(varthr) == 0)
+              #     out <- paste0(txt, ', default selection is median (no threshold)')
+              #   
+              #   if(length(varthr) != 0)
+              #     out <- paste0(txt, ', default selection is defined threshold')
+              #     
+              #   return(out)
+              #          
+              # }) 
+       )
+
+)))
+
+))
+
+
+
+```
+
+
+
+```{r}
+
+
+output$mymap<-renderLeaflet(hotmap())
+```
