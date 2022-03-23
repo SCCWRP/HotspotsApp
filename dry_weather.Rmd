@@ -843,7 +843,7 @@ output$thresh_input <- renderUI({
               round(2)
             
            
-            numericInput('thrsel2', paste0('Threshold: ', dat$Unit %>% unique), min = hotrng[1], max = hotrng[3], value = hotrng[2])
+            numericInput('thrsel2', paste0('Threshold: ', dat$Unit[0]), min = hotrng[1], max = hotrng[3], value = hotrng[2])
             
          })
 # These are important. They will have to be put in separate uiOutputs
