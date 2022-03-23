@@ -175,85 +175,39 @@ output$dl <- downloadHandler(
   data <- reactive({
     req(input$file_upload)
     print('reading excel file')
-  data<-read_excel(input$file_upload$datapath,
-
-                  skip = 2
+    
+    return(
+      read_excel(
+        input$file_upload$datapath,
+        skip = 2
+      ) %>%
+      drop_na(Result)%>%
+      rename(Watershed = county)
     )
-  
-
-  
-#  data2<- st_as_sf(data1, coords = c("TargetLongitude", "TargetLatitude"), crs = 4326)
-#  
-#  
-# 
-# ca <- st_read("wbdhu10_a_ca/wbdhu10_a_ca.shp")
-# ca_wgs <- st_transform(ca, crs = 4326)
-# 
-# data <- st_join(data2, ca_wgs)
-# 
-
-
-  data%>%
-     drop_na(Result)%>%
-    rename(Watershed = county)%>%
-     #select(StationCode,SampleDate,TargetLongitude,TargetLatitude,NAME,Result,Unit)%>%
-    #rename(Watershed = NAME)
-
-
-    return(data)
 
   })
 
-filtered_dataframe<-reactive({
+filter_dataframe <- function(dat, varsel3, Watershed_check){
   
       #req(input$file_upload)
-
-  data<-data()
   print('filtering dataframe')
-
-  
-   
-   #%>%
-     #select(Analyte,Watershed,StationCode,TargetLatitude,TargetLongitude,Units)
-     #select(Analyte,Watershed,StationCode,TargetLatitude,TargetLongitude,Units)
   
     #quantile_c<-input$quantile_check
-    Analyte_c <- input$varsel3
-    Watershed_c <- input$Watershed_check
-    #Unit_c<-input$Unitel
-    #Watershed_c<-input$Watershed_check
-    
+    Analyte_c <- varsel3
+    Watershed_c <- Watershed_check
  
     
     
-  data %>%
+  dat %>%
     #filter(StationCode %in% quantile_c)%>%
     filter(Analyte %in% Analyte_c)%>%
     filter(Watershed %in% Watershed_c)
     #filter(Unit %in% Unit_c)
     #filter(Watershed %in% Watershed_c)
   
-     return(data)
+     return(dat)
   
-})
-
-
-# tops <- reactive({
-#   
-#   req(input$file_upload)
-#    data<-read_excel(input$file_upload$datapath)
-#   
-#   tops<-table(data$Analyte) %>% sort %>% rev %>% .[1:10] %>% names %>% sort
-#   
-#   tops <- thrsdat %>% 
-#   pull(Analyte) %>% 
-#   c(., tops) %>% 
-#   unique
-# tops <- tops[!tops %in% nutrs]
-# 
-# return(tops)
-#   
-# })
+}
 
 
   
@@ -263,7 +217,7 @@ locs<-reactive({
   req(input$file_upload)
   
   
-  locs <- filtered_dataframe()
+  locs <- filter_dataframe(data(), input$varsel3, input$Watershed_check)
   
   
   locs%>%
@@ -316,11 +270,9 @@ output$my_table<-renderDT({
 varthr <- reactive({
   
   # input
-  varsel3 <- input$varsel3
-  filtered_dataframe<-filtered_dataframe()
+  filtered_dataframe<-filter_dataframe(data(), input$varsel3, input$Watershed_check)
   
   out <- filtered_dataframe %>% 
-    filter(Analyte %in% varsel3) %>% 
     dplyr::mutate(Threshold = median(Result))%>%
     pull(Threshold)
   
@@ -336,13 +288,12 @@ hotrng <- reactive({
   data<-data()
   
   # inputs
-  varsel3 <- input$varsel3
   varthr <- varthr()
   
   # values for slider
   qnts <- c(0, 0.5, 1)
   out <- data %>% 
-    filter(Analyte %in% varsel3) %>%
+    filter(Analyte %in% input$varsel3) %>%
     pull(Result) %>% 
     quantile(probs = qnts, na.rm = T) %>%
     round(2)
@@ -372,29 +323,6 @@ hotdat <- reactive({
   locsel <- input$locsel
   req(thrsel2)
 
-  # filter by tmdl waterbodies
-  # if( length(locsel)
-  # 
-  #    > 0)
-  #   
-  #   {
-  #   
-  #   # grp <- tmdl %>% 
-  #   #   filter(Analyte %in% varsel3) %>% 
-  #   #   pull(grp) 
-  #   # 
-  #   # stas <- tmdldat %>% 
-  #   #   filter(Analyte %in% !!grp) %>% 
-  #   #   filter(Receiving %in% locsel) %>% 
-  #   #   select(StationCode, Receiving)
-  # 
-  #   out <- data %>% 
-  #     inner_join(stas, by = 'StationCode') %>% 
-  #     select(-Watershed) %>% 
-  #     rename(Watershed = Receiving)
-  
-  #}
-  
   #if(!tmdsel)
     out <- data 
   
@@ -528,10 +456,7 @@ hotplo2 <- eventReactive(list(input$go_quality),{
       #legend.position = c(.2,.85),
       #legend.position="top",
     ) +
-    # Hi Emily! The reason why you were getting the error was because of this
-    # There are values of n which exceed the specified limit here, which is zero to 100
-    # I am going to increase the limit and it should work
-    #scale_y_continuous(limits = c(0, 100))
+
     scale_y_continuous(limits = c(0, 1000))
   
   #label= Exceedences
@@ -553,7 +478,7 @@ hotplo<- eventReactive(list(input$go_quality),{
 
   
   # input
-  data <- filtered_dataframe()
+  data <- filter_dataframe(data(), input$varsel3, input$Watershed_check)
   #dtssel <- input$dtssel
   
   
@@ -788,56 +713,13 @@ data from CEDEN. Data maximum is 35,000 rows.",br(),
  #upload_format_choice_ui("upload_format","Choose upload format:"),
         
     uiOutput('county_select'),
+    uiOutput('analyte_select'),
+    uiOutput('thresh_input'),
  
  
- 
-        uiOutput('constituent_select'),
-        
-         
-        #selectInput('varsel3', 'Select constituent:', choices = sort(c(tops, nutrs)), selected = 'ENT'),
-        #selectInput('tmdsel', 'Filter by TMDL receiving waterbodies?', choices = c(F, T)),
-        #renderUI({
-
-
-            #locs<-locs()
-                # input
-                #varsel3 <- input$varsel3
-                #tmdsel <- as.logical(input$tmdsel)
-
-                #req(tmdsel)
-
-                # get receiving tmdl waterbodies
-               # grp <- tmdl %>%
-                  #filter(Analyte %in% varsel3) %>%
-                  #pull(grp)
-               # locs <- tmdldat %>%
-                  #filter(Analyte %in% !!grp) %>%
-                  #pull(Receiving) %>%
-                  #unique
-
-                #if(length(locs) == 0)
-                  #out <- 'No TMDLs for selection'
-
-                #if(length(locs) > 0)
-                  #out <- pickerInput(inputId = "locsel", label = 'Select TMDL receiving waterbodies:', choices = locs,
-                    #options = list(`actions-box` = TRUE, size = 20), selected = locs, multiple = TRUE)
-
-                #return(out)
-
-              #}),
-        
-        
-        uiOutput('thresh'),
-        
-        #checkboxInput("logarithmicY", "Log Scale?", FALSE),
         
         actionButton("go_quality", "Plot Current Selection"),
-         # Dataset filters
-        # choice_ui("choice_ui_Watershed", "Watershed"),
-        # choice_ui("choice_ui_station", "Station"),
-        # choice_ui("choice_ui_Analyte", "Analyte"),
-        # choice_ui("choice_ui_unit", "Unit"),
-        # choice_ui("choice_ui_fraction", "Fraction")
+      
         )),
  
        ),
@@ -890,100 +772,11 @@ column(12,
        plotlyOutput('myplot2', width = 1200, height= 1200)),
 ),
 
-),
-# box(title= "Bar Plot of Number of Observations by TMDL Watershed and Station", status = "info", collapsed = TRUE,collapsible = TRUE, width = 12, solidHeader = TRUE,
-# fluidRow(
-# column(12,
-#         p(
-#        "Hover over for more information about a station and mouse drag
-#           selected bars from graphs to ZOOM in on a particular station"),
-#        plotlyOutput('myplot2', width = 400, height= 1200)),
-# ),
-# 
-# ),
-
- # column(12, 
- #        column(6, 
- #                renderLeaflet(hotmap()),
- #        ),
-        #column(6,
-               #dataTableOutput("my_table")
-#        # sliderInput('dtssel', 'Select date range:', min = dts[1], max = dts[2], value = dts, timeFormat="%Y-%m", width = '600px')
-        #)
- #)
-# column(12,
-#        column(4,
-#               selectInput('tmdsel', 'Filter by TMDL receiving waterbodies?', choices = c(F, T))
-#        ),
-       #column(8,
-              #sliderInput('cntsel', 'Filter stations by total n:', min = 0, max = obsrng[2], value = c(0, obsrng[2]), width = '600px')
-       #)
-#)
-fluidRow(
-column(12,
-       # column(4,
-       #        renderUI({
-       # 
-       # 
-       #      #locs<-locs()
-       #          # input
-       #          varsel3 <- input$varsel3
-       #          tmdsel <- as.logical(input$tmdsel)
-       # 
-       #          req(tmdsel)
-       # 
-       #          # get receiving tmdl waterbodies
-       #          grp <- tmdl %>%
-       #            filter(Analyte %in% varsel3) %>%
-       #            pull(grp)
-       #          locs <- tmdldat %>%
-       #            filter(Analyte %in% !!grp) %>%
-       #            pull(Receiving) %>%
-       #            unique
-       # 
-       #          if(length(locs) == 0)
-       #            out <- 'No TMDLs for selection'
-       # 
-       #          if(length(locs) > 0)
-       #            out <- pickerInput(inputId = "locsel", label = 'Select TMDL receiving waterbodies:', choices = locs,
-       #              options = list(`actions-box` = TRUE, size = 20), selected = locs, multiple = TRUE)
-       # 
-       #          return(out)
-       # 
-       #        })
-       # ),
-       # column(4,
-       #        renderUI({
-       #          
-       #          # input
-       #          hotrng <- hotrng()
-       #          
-       #          numericInput('thrsel2', 'Input threshold:', min = hotrng[1], max = hotrng[3], value = hotrng[2])
-       #          
-       #        })
-       # ), 
-              # renderText({
-              # 
-              #   # input
-              #   hotrng <- hotrng()
-              #   varthr <- varthr()
-              #   
-              #   txt <- paste0("min ", hotrng[1], ', max ', hotrng[3])
-              # 
-              #   if(length(varthr) == 0)
-              #     out <- paste0(txt, ', default selection is median (no threshold)')
-              #   
-              #   if(length(varthr) != 0)
-              #     out <- paste0(txt, ', default selection is defined threshold')
-              #     
-              #   return(out)
-              #          
-              # }) 
-       )
+)
 
 )))
 
-))
+)
 
 
 
@@ -992,10 +785,10 @@ column(12,
 
 ``` {r}
 output$county_select <- renderUI({
-
-           filtered_dataframe<-filtered_dataframe()
-
-           filtered_dataframe<-filtered_dataframe%>%
+          
+           #hotrng <- hotrng()
+           
+           dat <- data() %>%
              #mutate(StationCode = factor(StationCode))%>%
              mutate(Analyte = factor(Analyte))%>%
              mutate(Unit = factor(Unit))%>%
@@ -1003,63 +796,67 @@ output$county_select <- renderUI({
              #print(data)
 
             print('watershed ui')
-           pickerInput(inputId = "Watershed_check",
-                       label = "County:",
-                       choices = levels(filtered_dataframe$Watershed),
-                       selected = levels(filtered_dataframe$Watershed),
-                       options = list(`actions-box` = TRUE),
-                       multiple = TRUE)
-
-
-
+          tagList(
+             pickerInput(inputId = "Watershed_check",
+                         label = "County:",
+                         choices = levels(dat$Watershed),
+                         selected = levels(dat$Watershed),
+                         options = list(`actions-box` = TRUE),
+                         multiple = TRUE)
+          )
          })
 
-output$constituent_select <- renderUI({  
+output$analyte_select <- renderUI({
+          req(input$Watershed_check)
+           #hotrng <- hotrng()
            
-           filtered_dataframe<-filtered_dataframe()
-           
-          filtered_dataframe<-filtered_dataframe%>%
+           dat <- data() %>%
              #mutate(StationCode = factor(StationCode))%>%
              mutate(Analyte = factor(Analyte))%>%
-             mutate(Unit = factor(Unit))
+             mutate(Unit = factor(Unit))%>%
+             mutate(Watershed = factor(Watershed))
              #print(data)
            
-
-           # pickerInput(inputId = "quantile_check",
-           #             label = "Watershed (Select up to 3):",
-           #             choices = levels(data$Watershed),
-           #             selected = levels(data$Watershed),
-           #             options = list(`actions-box` = TRUE),
-           #             multiple = TRUE)
-           
-         req(input$Watershed_check)
-           print('constituent ui')
-            pickerInput(inputId = "varsel3", 
-                       label = "Constituent:",
-                       choices = levels(filtered_dataframe$Analyte[input$Watershed_check]),
-                       selected = levels(filtered_dataframe$Analyte[input$Watershed_check]),
-                       options = list(`actions-box` = TRUE), 
-                       multiple = FALSE)
+           pickerInput(inputId = "varsel3",
+                         label = "Constituent:",
+                         choices = levels(dat$Analyte[input$Watershed_check]),
+                         selected = levels(dat$Analyte[input$Watershed_check]),
+                         options = list(`actions-box` = TRUE),
+                         multiple = FALSE
+           )
             
-               # pickerInput(inputId = "Unitel",
-               #         label = "Unit:",
-               #         choices = levels(data$Unit),
-               #         selected = levels(data$Unit),
-               #         options = list(`actions-box` = TRUE),
-               #         multiple = FALSE)
-         
-           
          })
 
 
-output$thresh <- renderUI({
-                
-                # input
-                hotrng <- hotrng()
-                
-                numericInput('thrsel2', paste0('Threshold: ', Unit), min = hotrng[1], max = hotrng[3], value = hotrng[2])
-                
-              })
+output$thresh_input <- renderUI({
+          req(input$Watershed_check)
+          req(input$varsel3)
+            
+          dat <- data()
+          
+            # values for slider
+            qnts <- c(0, 0.5, 1)
+            hotrng <- dat %>% 
+              filter(Analyte %in% input$varsel3) %>%
+              pull(Result) %>% 
+              quantile(probs = qnts, na.rm = T) %>%
+              round(2)
+            
+           
+            numericInput('thrsel2', paste0('Threshold: ', dat$Unit %>% unique), min = hotrng[1], max = hotrng[3], value = hotrng[2])
+            
+         })
+# These are important. They will have to be put in separate uiOutputs
+              # ,
+              # pickerInput(inputId = "varsel3", 
+              #            label = "Constituent:",
+              #            choices = levels(dat$Analyte[input$Watershed_check]),
+              #            selected = levels(dat$Analyte[input$Watershed_check]),
+              #            options = list(`actions-box` = TRUE), 
+              #            multiple = FALSE),
+              #   
+              #   numericInput('thrsel2', paste0('Threshold: ', Unit), min = hotrng[1], max = hotrng[3], value = hotrng[2])
+
 ```
 
 ```{r}
