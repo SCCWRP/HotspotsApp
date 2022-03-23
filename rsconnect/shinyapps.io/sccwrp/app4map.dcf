@@ -5,7 +5,6 @@ account: sccwrp
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5439743
-bundleId: 5719410
+bundleId: 5719957
 url: https://sccwrp.shinyapps.io/app4map/
-when: 1648068252.04675
-lastSyncTime: 1648068252.04675
+when: 1648078536.08263

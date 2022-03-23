@@ -616,7 +616,7 @@ dashboardPage(
                              "This web application was created to assist regulated and regulatory managers when analyzing their hot spot monitoring program for supporting adaptive management decisions.  This hot spot app supports monitoring designs for any indicator (chemical, bacteria, trash, biology, volume) and can accommodate either continuous or discontinuous data.",br(),  
 "This web app has three elements: 1) upload your data and water quality thresholds, 2) map of threshold exceedances, 3) box plots of threshold exceedances, and 4) bar plot of sample sizes.",br(),  
 "The data upload can be accomplished using the downloadable data template or uploading directly from CEDEN.  This allows users to input as many sites and as many sampling events per site as they wish. The data upload tab is also the location where the water quality threshold input is required.",br(), 
-"The map of threshold exceedances is a thematic map.  The larger and warmer the colors are in the map symbol, the greater the frequency of threshold exceedances occurring at this site.  In contrast, the smaller and cooler the colors are in the map symbols, the lesser the frequency of threshold exceedances occurring at this site."
+"The map of threshold exceedances is a thematic map.  The larger and warmer the colors are in the map symbol, the greater the frequency of threshold exceedances occurring at this site.  In contrast, the smaller and cooler the colors are in the map symbols, the lesser the frequency of threshold exceedances occurring at this site.",br(),br(),br(),br(),br(),"Version 1, updated: 3/22/22"
 ),
                            
                        p("Use the side panel on the left of the page to navigate to each section, with more specific options being found within each section.")))
@@ -745,12 +745,13 @@ box(title= "Box Plots of Constituent Results by Watershed and Station", status =
 fluidRow(
   p(
        "Hover over for more information about a station and mouse drag
-          selected boxplots from graphs to ZOOM in on a particular station"),
+          selected boxplots from graphs to ZOOM in on a particular station.
+       Click log scale button then click 'plot current selection' to see the graph on the log scale"),
 column(12,
        checkboxInput("logarithmicY", "Log Scale?", FALSE),
-       #actionButton("go2_quality", "Re-Plot"),
+        #actionButton("go_quality", "Re-plot"),
        #checkboxInput("logarithmicY", "Log Scale?", FALSE),
-       plotlyOutput('myplot',width = 1200, height=1200)),
+       plotlyOutput('myplot',width = 600, height=600)),
 
 # column(6,
 #        plotlyOutput('myplot2', width = 550, height= 1200)),
@@ -769,7 +770,7 @@ fluidRow(
 #        plotlyOutput('myplot',width = 550, height=1200)),
 
 column(12,
-       plotlyOutput('myplot2', width = 1200, height= 1200)),
+       plotlyOutput('myplot2', width = 600, height= 600)),
 ),
 
 )
