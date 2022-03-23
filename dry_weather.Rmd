@@ -40,7 +40,6 @@ library(pwr)
 library(purrr)
 library(DT)
 library(writexl)
-library(plotly)
 library(shinydashboard)
 library(dashboardthemes)
 library(shinyjs)
@@ -175,7 +174,7 @@ output$dl <- downloadHandler(
 
   data <- reactive({
     req(input$file_upload)
-
+    print('reading excel file')
   data<-read_excel(input$file_upload$datapath,
 
                   skip = 2
@@ -210,6 +209,7 @@ filtered_dataframe<-reactive({
       #req(input$file_upload)
 
   data<-data()
+  print('filtering dataframe')
 
   
    
@@ -218,15 +218,15 @@ filtered_dataframe<-reactive({
      #select(Analyte,Watershed,StationCode,TargetLatitude,TargetLongitude,Units)
   
     #quantile_c<-input$quantile_check
-    Analyte_c<-input$varsel3
-    Watershed_c<-input$Watershed_check
+    Analyte_c <- input$varsel3
+    Watershed_c <- input$Watershed_check
     #Unit_c<-input$Unitel
     #Watershed_c<-input$Watershed_check
     
  
     
     
-  data%>%
+  data %>%
     #filter(StationCode %in% quantile_c)%>%
     filter(Analyte %in% Analyte_c)%>%
     filter(Watershed %in% Watershed_c)
@@ -787,67 +787,11 @@ data from CEDEN. Data maximum is 35,000 rows.",br(),
                       ),
  #upload_format_choice_ui("upload_format","Choose upload format:"),
         
-    renderUI({
-
-           filtered_dataframe<-filtered_dataframe()
-
-           filtered_dataframe<-filtered_dataframe%>%
-             #mutate(StationCode = factor(StationCode))%>%
-             mutate(Analyte = factor(Analyte))%>%
-             mutate(Unit = factor(Unit))%>%
-             mutate(Watershed = factor(Watershed))
-             #print(data)
-
-
-           pickerInput(inputId = "Watershed_check",
-                       label = "County:",
-                       choices = levels(filtered_dataframe$Watershed),
-                       selected = levels(filtered_dataframe$Watershed),
-                       options = list(`actions-box` = TRUE),
-                       multiple = TRUE)
-
-
-
-         }),
+    uiOutput('county_select'),
  
  
  
-        renderUI({  
-           
-           filtered_dataframe<-filtered_dataframe()
-           
-          filtered_dataframe<-filtered_dataframe%>%
-             #mutate(StationCode = factor(StationCode))%>%
-             mutate(Analyte = factor(Analyte))%>%
-             mutate(Unit = factor(Unit))
-             #print(data)
-           
-
-           # pickerInput(inputId = "quantile_check",
-           #             label = "Watershed (Select up to 3):",
-           #             choices = levels(data$Watershed),
-           #             selected = levels(data$Watershed),
-           #             options = list(`actions-box` = TRUE),
-           #             multiple = TRUE)
-           
-         req(input$Watershed_check)
-           
-            pickerInput(inputId = "varsel3", 
-                       label = "Constituent:",
-                       choices = levels(filtered_dataframe$Analyte[input$Watershed_check]),
-                       selected = levels(filtered_dataframe$Analyte[input$Watershed_check]),
-                       options = list(`actions-box` = TRUE), 
-                       multiple = FALSE)
-            
-               # pickerInput(inputId = "Unitel",
-               #         label = "Unit:",
-               #         choices = levels(data$Unit),
-               #         selected = levels(data$Unit),
-               #         options = list(`actions-box` = TRUE),
-               #         multiple = FALSE)
-         
-           
-         }),
+        uiOutput('constituent_select'),
         
          
         #selectInput('varsel3', 'Select constituent:', choices = sort(c(tops, nutrs)), selected = 'ENT'),
@@ -883,14 +827,7 @@ data from CEDEN. Data maximum is 35,000 rows.",br(),
               #}),
         
         
-        renderUI({
-                
-                # input
-                hotrng <- hotrng()
-                
-                numericInput('thrsel2', paste0('Threshold: ', Unit), min = hotrng[1], max = hotrng[3], value = hotrng[2])
-                
-              }),
+        uiOutput('thresh'),
         
         #checkboxInput("logarithmicY", "Log Scale?", FALSE),
         
@@ -1053,6 +990,77 @@ column(12,
 ```
 
 
+``` {r}
+output$county_select <- renderUI({
+
+           filtered_dataframe<-filtered_dataframe()
+
+           filtered_dataframe<-filtered_dataframe%>%
+             #mutate(StationCode = factor(StationCode))%>%
+             mutate(Analyte = factor(Analyte))%>%
+             mutate(Unit = factor(Unit))%>%
+             mutate(Watershed = factor(Watershed))
+             #print(data)
+
+            print('watershed ui')
+           pickerInput(inputId = "Watershed_check",
+                       label = "County:",
+                       choices = levels(filtered_dataframe$Watershed),
+                       selected = levels(filtered_dataframe$Watershed),
+                       options = list(`actions-box` = TRUE),
+                       multiple = TRUE)
+
+
+
+         })
+
+output$constituent_select <- renderUI({  
+           
+           filtered_dataframe<-filtered_dataframe()
+           
+          filtered_dataframe<-filtered_dataframe%>%
+             #mutate(StationCode = factor(StationCode))%>%
+             mutate(Analyte = factor(Analyte))%>%
+             mutate(Unit = factor(Unit))
+             #print(data)
+           
+
+           # pickerInput(inputId = "quantile_check",
+           #             label = "Watershed (Select up to 3):",
+           #             choices = levels(data$Watershed),
+           #             selected = levels(data$Watershed),
+           #             options = list(`actions-box` = TRUE),
+           #             multiple = TRUE)
+           
+         req(input$Watershed_check)
+           print('constituent ui')
+            pickerInput(inputId = "varsel3", 
+                       label = "Constituent:",
+                       choices = levels(filtered_dataframe$Analyte[input$Watershed_check]),
+                       selected = levels(filtered_dataframe$Analyte[input$Watershed_check]),
+                       options = list(`actions-box` = TRUE), 
+                       multiple = FALSE)
+            
+               # pickerInput(inputId = "Unitel",
+               #         label = "Unit:",
+               #         choices = levels(data$Unit),
+               #         selected = levels(data$Unit),
+               #         options = list(`actions-box` = TRUE),
+               #         multiple = FALSE)
+         
+           
+         })
+
+
+output$thresh <- renderUI({
+                
+                # input
+                hotrng <- hotrng()
+                
+                numericInput('thrsel2', paste0('Threshold: ', Unit), min = hotrng[1], max = hotrng[3], value = hotrng[2])
+                
+              })
+```
 
 ```{r}
 
