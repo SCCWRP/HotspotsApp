@@ -668,9 +668,8 @@ Upload your data using the app’s downloadable data template or uploading direc
     box(status = "primary", width = 12,title="Hotspot Detection",
         fluidRow(
           column(12,
-          p("Map your hot spots in three easy steps: 1) Upload your data, 2) select constituent and threshold, 3) click on the “+” to map exceedance frequency by station
-
-Hotspots are defined as the number of samples at a site above the threshold divided by the total number of observations for the selected constituent. You get to pick the threshold – pick your local water quality objective  or use the default value of the median concentration of the data set. 
+          p("Map your hot spots in three easy steps:",br()," 1) Upload your data",br(), "2) select constituent and threshold",br(), "3) click on the “+” to map exceedance frequency by station",br(),
+"Hotspots are defined as the number of samples at a site above the threshold divided by the total number of observations for the selected constituent. You get to pick the threshold – pick your local water quality objective  or use the default value of the median concentration of the data set. 
 ")),
           ),
 
@@ -716,7 +715,7 @@ column(12,
                           "text/csv",
                           "text/comma-separated-values,text/plain",
                           ".csv",
-                          ".xls"
+                          ".xlxs"
                         )
                       ),
  #upload_format_choice_ui("upload_format","Choose upload format:"),
