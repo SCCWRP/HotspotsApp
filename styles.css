@@ -1,8 +1,10 @@
-th, td {
-  padding-left: 0;
-  padding-right: 0;     
+
+div.main-container {
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
 }
 
-
-/* reactable fixed columns*/
-
+.shiny-frame {
+  height: 800px;
+}

@@ -6,7 +6,7 @@ runtime: shiny
 ---
   
 ```{r setup, message = F, warning = F, results = 'hide', echo = F}
-knitr::opts_chunk$set(echo = TRUE, warning = F, message = F, echo = F, fig.path = 'figs/', dev.args = list(family = 'serif'))
+knitr::opts_chunk$set( warning = F, message = F, echo = F, fig.path = 'figs/', dev.args = list(family = 'serif'))
 
 
 
