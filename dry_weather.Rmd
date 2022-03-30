@@ -625,7 +625,7 @@ Upload your data using the app’s downloadable data template or uploading direc
 ",br(),br(),br(),br(),br(),"Version 1, updated: 3/22/22"
 ),
                            
-                       p("Use the side panel on the left of the page to navigate to each section, with more specific options being found within each section.")))
+                    ))
                     
                   ), #End Box
                   
