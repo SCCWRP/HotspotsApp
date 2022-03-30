@@ -435,7 +435,7 @@ hotplo2 <- eventReactive(list(input$go_quality),{
   
   print(toplo)
     
-  Exceedences<-paste0(toplo$exceedences,"%")
+  Exceedences<-paste0(toplo$exceedences,"%",toplo$Name)
 #Barplot
   p <- ggplot(toplo, aes(x = StationCode, y = n,label= Exceedences, fill=toplo$cols)) +
      geom_bar(stat = 'identity', fill=toplo$cols) +
