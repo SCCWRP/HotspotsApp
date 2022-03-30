@@ -711,16 +711,11 @@ column(12,
         # mod_data_ui("data_selection"),
  fileInput("file_upload", "Choose File",
                         multiple = FALSE,
-                        accept = c(
-                          "text/csv",
-                          "text/comma-separated-values,text/plain",
-                          ".csv",
-                          ".xlxs"
-                        )
+                        accept = NULL
                       ),
  #upload_format_choice_ui("upload_format","Choose upload format:"),
         
-    uiOutput('county_select'),
+    #uiOutput('county_select'),
     uiOutput('analyte_select'),
     uiOutput('thresh_input'),
  
@@ -757,7 +752,7 @@ column(12,
        checkboxInput("logarithmicY", "Log Scale?", FALSE),
         #actionButton("go_quality", "Re-plot"),
        #checkboxInput("logarithmicY", "Log Scale?", FALSE),
-       plotlyOutput('myplot',width = 600, height=600)),
+       plotlyOutput('myplot',width = 1200, height=1200)),
 
 # column(6,
 #        plotlyOutput('myplot2', width = 550, height= 1200)),
@@ -775,7 +770,7 @@ fluidRow(
 #        plotlyOutput('myplot',width = 550, height=1200)),
 
 column(12,
-       plotlyOutput('myplot2', width = 600, height= 600)),
+       plotlyOutput('myplot2', width = 1200, height= 1200)),
 ),
 
 )
@@ -813,7 +808,7 @@ output$county_select <- renderUI({
          })
 
 output$analyte_select <- renderUI({
-          req(input$Watershed_check)
+          #req(input$Watershed_check)
            #hotrng <- hotrng()
            
            dat <- data() %>%
@@ -835,7 +830,7 @@ output$analyte_select <- renderUI({
 
 
 output$thresh_input <- renderUI({
-          req(input$Watershed_check)
+          #req(input$Watershed_check)
           req(input$varsel3)
             
           dat <- data()
