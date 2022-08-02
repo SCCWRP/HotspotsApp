@@ -176,10 +176,7 @@ output$dl <- downloadHandler(
     print('reading excel file')
     
     return(
-      read_excel(
-        input$file_upload$datapath,
-        skip = 2
-      ) %>%
+      read_excel(input$file_upload$datapath) %>%
       drop_na(Result)%>%
       rename(Watershed = county)
     )
