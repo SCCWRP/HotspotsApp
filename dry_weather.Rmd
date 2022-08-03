@@ -327,6 +327,7 @@ hotdat <- reactive({
   # summary for all dates, stations by selected constituent
   out <- out %>% 
     filter(Analyte %in% varsel3) %>%
+    filter(!is.na(Result)) %>%
     group_by(Watershed, StationCode) %>% 
     mutate(n = n()) %>% 
     #filter(Date >= dtssel[1] & Date <= dtssel[2]) %>%
@@ -337,18 +338,22 @@ hotdat <- reactive({
       )
     ) %>% 
     summarise(
-      exceeds = sum(abv),
-      n = unique(n)
+      n = unique(n),
+      exceeds_count = sum(abv, na.rm = T),
+      unexceeds_count = n - exceeds_count,
       ) %>% 
     ungroup() %>% 
     mutate(
-      exceeds = round((exceeds / n) * 100, 0),
-      unexceeds = (100- exceeds),
-      cols2 = hotcol(unexceeds),
-      cols = hotcol(exceeds), 
-      cexs = scales::rescale(exceeds, to = c(4, 17), from = c(0, 100))
+      exceeds_pct = round((exceeds_count / n) * 100, 0),
+      unexceeds_pct = (100 - exceeds_pct),
+      exceeds = exceeds_pct,
+      unexceeds = unexceeds_pct,
+      cols2 = hotcol(unexceeds_pct),
+      cols = hotcol(exceeds_pct), 
+      cexs = scales::rescale(exceeds_pct, to = c(4, 17), from = c(0, 100))
     ) %>% 
-    select(Watershed, StationCode, exceeds, n, cols,cols2, cexs, unexceeds) %>% 
+    # exceeds and unexceeds are left in for compatibility with other code Emily may have written, but they essentially are the exceed/unexceed %
+    select(Watershed, StationCode, n, exceeds_count, exceeds_pct, unexceeds_count, unexceeds_pct, cols, cols2, cexs, exceeds, unexceeds) %>% 
     #filter(n >= cntsel[1] & n <= cntsel[2]) %>% 
     unique
   
@@ -411,32 +416,35 @@ hotplo2 <- eventReactive(list(input$go_quality),{
     #mutate(StationCode = factor(StationCode, levels = .$StationCode))
   #ylab <- paste0("Number of exceedances above the median\nfrom ", as.character(dtssel[1]), ' to ', as.character(dtssel[2]))
 
-
-  
-  
-  
- 
-  toplo_exceeds<-toplo%>%
-    select(Watershed, StationCode, exceeds, n, cols)%>%
-    rename(exceedences = exceeds)%>%
-    mutate( Name = "exceeds")
+  toplo_exceeds<-toplo %>%
+    select(Watershed, StationCode, exceeds_count, exceeds_pct, n, cols)%>%
+    rename(exceedences = exceeds_count, exceedences_pct = exceeds_pct)%>%
+    mutate( Name = "exceeds", nameforlabel = "exceeding threshold")
   
   toplo_unexceeds<-toplo%>%
-    select(Watershed, StationCode, unexceeds, n, cols2)%>%
-    rename(exceedences = unexceeds)%>%
+    select(Watershed, StationCode, unexceeds_count, unexceeds_pct, n, cols2)%>%
+    rename(exceedences = unexceeds_count, exceedences_pct = unexceeds_pct)%>%
     rename(cols = cols2)%>%
-    mutate( Name = "unexceeds")
+    mutate( Name = "unexceeds", nameforlabel = "below threshold")
   
-  toplo<-full_join(toplo_exceeds, toplo_unexceeds)
-  
+  #toplo<-full_join(toplo_exceeds, toplo_unexceeds)
+  toplo<-bind_rows(toplo_exceeds, toplo_unexceeds) %>% 
+    rename(exceedences_count = exceedences)
+
   print(toplo)
-    
-  Exceedences<-paste0(toplo$exceedences,"%"," ",toplo$Name)
+  
+  Exceedences<-paste0(
+    "Station ID: ", toplo$StationCode, '\n',
+    "Constituent: ", input$varsel3, '\n',
+    toplo$n," sample(s)", '\n',
+    toplo$exceedences_count," sample(s) ",toplo$nameforlabel, '\n',
+    toplo$exceedences_pct,"% of samples ",toplo$nameforlabel, '\n'
+  )
 #Barplot
   
   toplo %>% write.csv('ignore/toplo.csv')
   
-  p <- ggplot(toplo, aes(x = StationCode, y = exceedences,label= Exceedences)) + #, fill=toplo$cols)) +
+  p <- ggplot(toplo, aes(x = StationCode, y = exceedences_count,label= Exceedences, text = Exceedences)) + #, fill=toplo$cols)) +
      geom_bar(stat = 'identity', fill=toplo$cols) +
     facet_wrap(~Watershed, scales = 'free_x',ncol=1) +
      #scale_fill_manual(values = hotcol)+
@@ -465,7 +473,7 @@ hotplo2 <- eventReactive(list(input$go_quality),{
   #  #
     #return(p)
 
-  p2<-ggplotly(p)
+  p2<-ggplotly(p, tooltip = "text")
 
   return(p2)
 
