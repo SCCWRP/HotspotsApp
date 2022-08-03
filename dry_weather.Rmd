@@ -431,9 +431,12 @@ hotplo2 <- eventReactive(list(input$go_quality),{
   
   print(toplo)
     
-  Exceedences<-paste0(toplo$exceedences,"%",toplo$Name)
+  Exceedences<-paste0(toplo$exceedences,"%"," ",toplo$Name)
 #Barplot
-  p <- ggplot(toplo, aes(x = StationCode, y = n,label= Exceedences, fill=toplo$cols)) +
+  
+  toplo %>% write.csv('ignore/toplo.csv')
+  
+  p <- ggplot(toplo, aes(x = StationCode, y = exceedences,label= Exceedences)) + #, fill=toplo$cols)) +
      geom_bar(stat = 'identity', fill=toplo$cols) +
     facet_wrap(~Watershed, scales = 'free_x',ncol=1) +
      #scale_fill_manual(values = hotcol)+
@@ -452,7 +455,7 @@ hotplo2 <- eventReactive(list(input$go_quality),{
       #legend.position = c(.2,.85),
       #legend.position="top",
     ) +
-scale_y_continuous(expand=c(0.15,0))
+    scale_y_continuous(expand=c(0.15,0))
     #scale_y_continuous(limits = c(0, 1000))
   
   #label= Exceedences
@@ -509,15 +512,6 @@ hotplo<- eventReactive(list(input$go_quality),{
 print(p2)
   
 })
-
-
-
-
-
-
-
-
-
 
 
 
