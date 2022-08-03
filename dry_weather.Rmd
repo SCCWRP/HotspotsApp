@@ -477,14 +477,15 @@ hotplo<- eventReactive(list(input$go_quality),{
   data <- filter_dataframe(data(), input$varsel3, input$Watershed_check)
   #dtssel <- input$dtssel
   
-  
+  print("data")
+  print(data)
 
 
   p <- ggplot(data, aes(x = StationCode, y = Result)) +
      geom_boxplot() +
    facet_wrap(~Watershed, scales = 'free_x',ncol=1) +
        xlab("Station ID")+
-    ylab(Unit)+
+    ylab("Unit")+
     stat_summary(fun = "mean", geom = "point", color="black",size=1)+
     #scale_y_log10()+
     #thm1 +
